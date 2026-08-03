@@ -1,0 +1,50 @@
+[
+  {
+    "date": "2026-07-27",
+    "company": "Becklar",
+    "website": "https://www.indeed.com/viewjob?jk=e4cc7402e3e9aa34",
+    "position": "Software Engineer – II",
+    "method": "Online application via Indeed",
+    "result": "Still Waiting"
+  },
+  {
+    "date": "2026-07-28",
+    "company": "Time2Market",
+    "website": "https://www.indeed.com/viewjob?jk=fc9a3e966812d5e5",
+    "position": "C# .NET Developer",
+    "method": "Online application via Indeed",
+    "result": "Still Waiting"
+  },
+  {
+    "date": "2026-07-29",
+    "company": "Payentry",
+    "website": "https://www.indeed.com/viewjob?jk=25bb783c69d514b8",
+    "position": "Junior Software Engineer",
+    "method": "Online application via Indeed",
+    "result": "Still Waiting"
+  },
+  {
+    "date": "2026-07-30",
+    "company": "DataAnnotation",
+    "website": "https://www.indeed.com/viewjob?jk=f1048fb8622d3e38",
+    "position": "Accessibility QA Engineer – AI Trainer",
+    "method": "Online application via Indeed",
+    "result": "Still Waiting"
+  },
+  {
+    "date": "2026-07-31",
+    "company": "Synergy BIS",
+    "website": "https://www.indeed.com/viewjob?jk=1cc8d4f409569bfe&hl=en",
+    "position": ".NET Developer (Remote)",
+    "method": "Online application via Indeed",
+    "result": "Still Waiting"
+  },
+  {
+    "date": "2026-08-01",
+    "company": "Kreative Technologies",
+    "website": "https://www.indeed.com/viewjob",
+    "position": "Junior Application Developer (Application Modernization)",
+    "method": "Online application via Indeed",
+    "result": "Still Waiting"
+  }
+]

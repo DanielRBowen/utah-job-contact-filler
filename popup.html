@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Utah Job Contact Filler</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <h1>Utah Job Contact Filler</h1>
+      <p class="intro">
+        Paste JSON or CSV, review the preview, then fill the Utah DWS job-contact modals.
+        The extension never clicks <strong>Continue</strong>.
+      </p>
+
+      <label for="fileInput">Import a file</label>
+      <input id="fileInput" type="file" accept=".json,.csv,application/json,text/csv">
+
+      <label for="dataInput">JSON or CSV</label>
+      <textarea id="dataInput" spellcheck="false" placeholder="Paste JSON or CSV here"></textarea>
+
+      <div class="button-row">
+        <button id="loadExample" type="button" class="secondary">Load example</button>
+        <button id="parseButton" type="button">Parse and preview</button>
+      </div>
+
+      <div id="status" class="status" role="status">No contacts loaded.</div>
+      <section id="preview" class="preview" aria-live="polite"></section>
+      <div class="preview-actions">
+        <button id="clearContacts" type="button" class="secondary" disabled>Clear all contacts</button>
+      </div>
+
+      <div class="button-row action-row">
+        <button id="fillCurrent" type="button" class="secondary" disabled>Fill current modal</button>
+        <button id="addAll" type="button" disabled>Fill &amp; add all</button>
+      </div>
+
+      <p class="note">
+        For an Indeed application, use contact method <code>WB</code> or a method containing
+        “online application” and provide the Indeed URL as <code>website</code>.
+      </p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

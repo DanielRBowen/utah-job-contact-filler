@@ -1,0 +1,181 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+  width: 440px;
+  margin: 0;
+  color: #17202a;
+  background: #f7f9fb;
+}
+
+main {
+  padding: 16px;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.intro,
+.note {
+  margin: 0 0 12px;
+  color: #4d5b66;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+label {
+  display: block;
+  margin: 10px 0 5px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+input[type="file"],
+textarea {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid #b8c3cc;
+  border-radius: 4px;
+  background: white;
+  font: inherit;
+  font-size: 12px;
+}
+
+input[type="file"] {
+  padding: 5px;
+}
+
+textarea {
+  min-height: 150px;
+  padding: 8px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+button {
+  border: 0;
+  border-radius: 4px;
+  padding: 8px 10px;
+  color: white;
+  background: #1769aa;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+button:hover:not(:disabled) {
+  background: #0f548b;
+}
+
+button.secondary {
+  color: #17364e;
+  background: #dce9f3;
+}
+
+button.secondary:hover:not(:disabled) {
+  background: #c9dcea;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.button-row button:first-child {
+  flex: 1;
+}
+
+.button-row button:last-child {
+  flex: 1.25;
+}
+
+.status {
+  min-height: 18px;
+  margin: 12px 0 8px;
+  color: #43515c;
+  font-size: 12px;
+}
+
+.status.error {
+  color: #a12727;
+}
+
+.status.success {
+  color: #216e39;
+}
+
+.preview {
+  max-height: 185px;
+  overflow: auto;
+  border: 1px solid #d5dce1;
+  border-radius: 4px;
+  background: white;
+}
+
+.preview:empty {
+  display: none;
+}
+
+.preview-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+th,
+td {
+  padding: 6px;
+  border-bottom: 1px solid #e5e9ec;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  color: #314b5d;
+  background: #eef3f6;
+}
+
+td small {
+  color: #65747f;
+}
+
+tr.completed td {
+  color: #65747f;
+  background: #f4f7f8;
+}
+
+.table-action {
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.action-row {
+  margin-top: 12px;
+}
+
+code {
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: #e7edf1;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+}
