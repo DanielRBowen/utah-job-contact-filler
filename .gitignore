@@ -1,0 +1,9 @@
+# Visual Studio workspace state and caches
+.vs/
+
+# Windows folder metadata
+desktop.ini
+Thumbs.db
+
+# macOS metadata
+.DS_Store
