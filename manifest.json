@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Utah Job Contact Filler",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Import JSON or CSV job-search contacts and fill Utah DWS Job Contacts.",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [

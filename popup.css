@@ -102,9 +102,9 @@ button:disabled {
 
 .status {
   min-height: 18px;
-  margin: 12px 0 8px;
   color: #43515c;
   font-size: 12px;
+  line-height: 1.35;
 }
 
 .status.error {
@@ -113,6 +113,51 @@ button:disabled {
 
 .status.success {
   color: #216e39;
+}
+
+.activity-panel {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #d5dce1;
+}
+
+.activity-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.activity-spinner {
+  display: none;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  border: 2px solid #b8c3cc;
+  border-top-color: #1769aa;
+  border-radius: 50%;
+  animation: activity-spin .8s linear infinite;
+}
+
+#activitySpinner.working {
+  display: block;
+}
+
+.version {
+  margin: 3px 0 0 21px;
+  color: #71808c;
+  font-size: 11px;
+}
+
+@keyframes activity-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-spinner {
+    animation: none;
+  }
 }
 
 .preview {

@@ -28,6 +28,23 @@
     return modal && isVisible(modal) ? modal : null;
   }
 
+  function modalStackValue(modal) {
+    const zIndex = Number(window.getComputedStyle(modal).zIndex);
+    if (Number.isFinite(zIndex)) return zIndex;
+    return Number(modal.getAttribute("index")) || 0;
+  }
+
+  function frontModal() {
+    return [...document.querySelectorAll("[uib-modal-window]")]
+      .filter(isVisible)
+      .reduce((front, modal) => !front || modalStackValue(modal) > modalStackValue(front) ? modal : front, null);
+  }
+
+  function isFrontModal(element) {
+    const modal = activeModal(element);
+    return Boolean(modal && modal === frontModal());
+  }
+
   function modalForm() {
     return [...document.querySelectorAll(FORM_SELECTOR)]
       .find((form) => activeModal(form)) || null;
@@ -35,19 +52,19 @@
 
   function loadingModalIsOpen() {
     return [...document.querySelectorAll("[uib-modal-window] .modal-body[aria-label='Please Wait'], [uib-modal-window] #divLoading")]
-      .some((element) => activeModal(element));
+      .some(isFrontModal);
   }
 
   function pageErrorText() {
     const errorBody = [...document.querySelectorAll("[uib-modal-window] #generic-modal-body .modal-body")]
-      .find((element) => activeModal(element));
+      .find(isFrontModal);
     if (errorBody) {
       const text = errorBody.textContent.replace(/\s+/g, " ").trim();
       if (/an error has occurred|error|unable|failed/i.test(text)) return text;
     }
 
     const sessionBody = [...document.querySelectorAll("[uib-modal-window] #session-timeout-modal .modal-body")]
-      .find((element) => activeModal(element));
+      .find(isFrontModal);
     if (sessionBody) return sessionBody.textContent.replace(/\s+/g, " ").trim();
     return "";
   }
@@ -283,7 +300,7 @@
     if (mode === "fillOnly") {
       report(`Filling contact 1 of ${contacts.length}: ${contacts[0].company}`);
       await fillModal(contacts[0]);
-      return { ok: true, message: `Filled ${contacts[0].company}. Review it, then click the modal's Add Job Contact button.` };
+      return { ok: true, message: `Completed filling ${contacts[0].company}. Review it, then click the modal's Add Job Contact button.` };
     }
 
     for (let index = 0; index < contacts.length; index += 1) {
@@ -299,7 +316,7 @@
         throw error;
       }
     }
-    return { ok: true, message: `Added ${contacts.length} job contacts. Review the table before clicking Continue.` };
+    return { ok: true, message: `Completed: added ${contacts.length} job contacts. Review the table before clicking Continue.` };
   }
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

@@ -54,6 +54,8 @@ const CSV_TEMPLATE = `date,company,position,method,website,result,resultComment
 
 let contacts = [];
 let isBusy = false;
+let lastStatusMessage = "Idle — no action has been started.";
+let lastStatusKind = "";
 const LOG_PREFIX = "[Utah Job Contact Filler]";
 
 const $ = (id) => document.getElementById(id);
@@ -67,10 +69,13 @@ function logError(message, error) {
   console.error(LOG_PREFIX, message, error);
 }
 
-function setStatus(message, kind = "") {
+function setStatus(message, kind = "", working = isBusy) {
+  lastStatusMessage = message;
+  lastStatusKind = kind;
   const status = $("status");
   status.textContent = message;
-  status.className = `status ${kind}`.trim();
+  status.className = `status ${kind}${working ? " working" : ""}`.trim();
+  $("activitySpinner").classList.toggle("working", working);
 }
 
 function setButtons(enabled) {
@@ -401,6 +406,7 @@ async function readFile(file) {
 async function sendToPage(type) {
   if (isBusy) return;
   isBusy = true;
+  setStatus("Starting Utah job-contact automation…");
   $("fillCurrent").disabled = true;
   $("addAll").disabled = true;
   try {
@@ -442,6 +448,7 @@ async function sendToPage(type) {
     setStatus(`${error.message} If the page was already open when you installed the extension, reload it once.`, "error");
   } finally {
     isBusy = false;
+    setStatus(lastStatusMessage, lastStatusKind, false);
     setButtons(contacts.length > 0);
   }
 }
@@ -472,6 +479,8 @@ $("addAll").addEventListener("click", async () => {
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === "PROGRESS" && isBusy) setStatus(message.message);
 });
+
+$("version").textContent = `Extension version ${chrome.runtime.getManifest().version}`;
 
 chrome.storage.local.get(["draft"], ({ draft }) => {
   log("Loaded saved draft.", { hasDraft: Boolean(draft), length: draft?.length || 0 });

@@ -25,7 +25,6 @@
         <button id="parseButton" type="button">Parse and preview</button>
       </div>
 
-      <div id="status" class="status" role="status">No contacts loaded.</div>
       <section id="preview" class="preview" aria-live="polite"></section>
       <div class="preview-actions">
         <button id="clearContacts" type="button" class="secondary" disabled>Clear all contacts</button>
@@ -40,6 +39,14 @@
         For an Indeed application, use contact method <code>WB</code> or a method containing
         “online application” and provide the Indeed URL as <code>website</code>.
       </p>
+
+      <footer class="activity-panel" aria-live="polite">
+        <div class="activity-line">
+          <span id="activitySpinner" class="activity-spinner" aria-hidden="true"></span>
+          <div id="status" class="status" role="status">Idle — no action has been started.</div>
+        </div>
+        <div id="version" class="version"></div>
+      </footer>
     </main>
     <script src="popup.js"></script>
   </body>
