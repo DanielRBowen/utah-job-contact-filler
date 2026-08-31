@@ -17,30 +17,80 @@
     chrome.runtime.sendMessage({ type: "PROGRESS", message }).catch(() => {});
   }
 
-  function modalForm() {
-    return document.querySelector(FORM_SELECTOR);
+  function isVisible(element) {
+    if (!element || !element.isConnected) return false;
+    const style = window.getComputedStyle(element);
+    return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) !== 0;
   }
 
-  function waitFor(predicate, timeoutMs = 10000, intervalMs = 50) {
+  function activeModal(element) {
+    const modal = element?.closest("[uib-modal-window], .modal");
+    return modal && isVisible(modal) ? modal : null;
+  }
+
+  function modalForm() {
+    return [...document.querySelectorAll(FORM_SELECTOR)]
+      .find((form) => activeModal(form)) || null;
+  }
+
+  function loadingModalIsOpen() {
+    return [...document.querySelectorAll("[uib-modal-window] .modal-body[aria-label='Please Wait'], [uib-modal-window] #divLoading")]
+      .some((element) => activeModal(element));
+  }
+
+  function pageErrorText() {
+    const errorBody = [...document.querySelectorAll("[uib-modal-window] #generic-modal-body .modal-body")]
+      .find((element) => activeModal(element));
+    if (errorBody) {
+      const text = errorBody.textContent.replace(/\s+/g, " ").trim();
+      if (/an error has occurred|error|unable|failed/i.test(text)) return text;
+    }
+
+    const sessionBody = [...document.querySelectorAll("[uib-modal-window] #session-timeout-modal .modal-body")]
+      .find((element) => activeModal(element));
+    if (sessionBody) return sessionBody.textContent.replace(/\s+/g, " ").trim();
+    return "";
+  }
+
+  // This deliberately has no deadline. Utah shows a separate loading modal while
+  // requests are in flight, so the correct signal is the page state, not elapsed time.
+  function waitForPageState(predicate, waitingMessage) {
     return new Promise((resolve, reject) => {
-      const started = Date.now();
+      let observer;
+      let settled = false;
+
+      const finish = (callback, value) => {
+        if (settled) return;
+        settled = true;
+        observer?.disconnect();
+        callback(value);
+      };
+
       const check = () => {
-        let value = false;
-        try {
-          value = predicate();
-        } catch (_) {
-          value = false;
+        const pageError = pageErrorText();
+        if (pageError) {
+          const error = new Error(`Utah reported an error: ${pageError}`);
+          logError("Utah displayed an error dialog.", error);
+          finish(reject, error);
+          return;
         }
-        if (value) {
-          resolve(value);
-        } else if (Date.now() - started >= timeoutMs) {
-          const error = new Error("Timed out waiting for the Utah form.");
-          logError("Timed out while waiting for a page condition.", error);
-          reject(error);
-        } else {
-          setTimeout(check, intervalMs);
+
+        try {
+          const value = predicate();
+          if (value) finish(resolve, value);
+        } catch (error) {
+          finish(reject, error);
         }
       };
+
+      if (waitingMessage) report(waitingMessage);
+      observer = new MutationObserver(check);
+      observer.observe(document.documentElement, {
+        attributes: true,
+        childList: true,
+        characterData: true,
+        subtree: true
+      });
       check();
     });
   }
@@ -73,11 +123,27 @@
     nativeSetValue(element, option.value);
   }
 
+  function addContactButton(form = modalForm()) {
+    const content = form?.closest(".modal-content");
+    return content?.querySelector("button[ng-click='addContact()']")
+      || content?.querySelector(".modal-footer #addContactButton:not([ng-click*='cancel'])")
+      || null;
+  }
+
   async function openModal() {
-    if (modalForm()) {
+    if (modalForm() && !loadingModalIsOpen()) {
       log("Add Job Contact modal was already open.");
       return;
     }
+
+    if (loadingModalIsOpen()) {
+      await waitForPageState(
+        () => !loadingModalIsOpen(),
+        "Waiting for Utah to finish its current request before opening the contact form."
+      );
+      if (modalForm()) return;
+    }
+
     const button = document.querySelector(ADD_BUTTON_SELECTOR);
     if (!button) {
       const error = new Error("The Utah page did not show the Add Job Contact button.");
@@ -86,7 +152,10 @@
     }
     log("Opening Add Job Contact modal.");
     button.click();
-    await waitFor(() => modalForm(), 10000);
+    await waitForPageState(
+      () => modalForm() && !loadingModalIsOpen(),
+      "Waiting for Utah to load the Add Job Contact form."
+    );
     log("Add Job Contact modal opened.");
   }
 
@@ -99,35 +168,69 @@
       result: contact.result
     });
     await openModal();
+    await waitForPageState(
+      () => {
+        const form = modalForm();
+        return form
+          && !loadingModalIsOpen()
+          && !document.getElementById("AddContactViewModel_EmployerName")?.disabled
+          && !document.getElementById("AddContactViewModel_Position")?.disabled
+          && !document.getElementById("AddContactViewModel_ContactDate")?.disabled
+          && !document.getElementById("AddContactViewModel_ContactTypeCode")?.disabled
+          && !document.getElementById("AddContactViewModel_ResultTypeCode")?.disabled;
+      },
+      "Waiting for the Add Job Contact form fields to become ready."
+    );
     setField("AddContactViewModel_EmployerName", contact.company);
     setField("AddContactViewModel_Position", contact.position);
     setField("AddContactViewModel_ContactDate", contact.date);
     setSelect("AddContactViewModel_ContactTypeCode", contact.method);
 
     if (contact.method === "OT") {
+      await waitForPageState(
+        () => !loadingModalIsOpen() && !document.getElementById("AddContactViewModel_ContactComment")?.disabled,
+        "Waiting for Utah to enable the Contact Comment field."
+      );
       setField("AddContactViewModel_ContactComment", contact.contactComment);
     }
     if (contact.method === "WB") {
-      await waitFor(() => !document.getElementById("AddContactViewModel_WebAddress")?.disabled, 3000);
+      await waitForPageState(
+        () => !loadingModalIsOpen() && !document.getElementById("AddContactViewModel_WebAddress")?.disabled,
+        "Waiting for Utah to enable the Web Address field."
+      );
       setField("AddContactViewModel_WebAddress", contact.website);
     }
     if (contact.method === "EM") {
-      await waitFor(() => !document.getElementById("AddContactViewModel_EmailAddress")?.disabled, 3000);
+      await waitForPageState(
+        () => !loadingModalIsOpen() && !document.getElementById("AddContactViewModel_EmailAddress")?.disabled,
+        "Waiting for Utah to enable the Email Address field."
+      );
       setField("AddContactViewModel_EmailAddress", contact.emailAddress || "");
     }
     if (contact.method === "PH") {
-      await waitFor(() => !document.getElementById("AddContactViewModel_PhoneNumber")?.disabled, 3000);
+      await waitForPageState(
+        () => !loadingModalIsOpen()
+          && !document.getElementById("AddContactViewModel_PhoneNumber")?.disabled
+          && !document.getElementById("AddContactViewModel_Address")?.disabled,
+        "Waiting for Utah to enable the Phone and Address fields."
+      );
       setField("AddContactViewModel_PhoneNumber", contact.phoneNumber || "");
       setField("AddContactViewModel_Address", contact.address || "");
     }
     if (contact.method === "FX") {
-      await waitFor(() => !document.getElementById("AddContactViewModel_FaxNumber")?.disabled, 3000);
+      await waitForPageState(
+        () => !loadingModalIsOpen() && !document.getElementById("AddContactViewModel_FaxNumber")?.disabled,
+        "Waiting for Utah to enable the Fax field."
+      );
       setField("AddContactViewModel_FaxNumber", contact.faxNumber || "");
     }
 
     setSelect("AddContactViewModel_ResultTypeCode", contact.result);
     if (contact.result === "OT") {
-      await waitFor(() => !document.getElementById("AddContactViewModel_ResultComment")?.disabled, 3000);
+      await waitForPageState(
+        () => !loadingModalIsOpen() && !document.getElementById("AddContactViewModel_ResultComment")?.disabled,
+        "Waiting for Utah to enable the Result Comment field."
+      );
       setField("AddContactViewModel_ResultComment", contact.resultComment);
     }
   }
@@ -141,27 +244,37 @@
       .join(" ");
   }
 
+  function contactGridRowCount() {
+    return document.querySelectorAll("#workSearchContactsGrid tbody tr").length;
+  }
+
   async function addModal() {
-    const form = modalForm();
+    let form = modalForm();
     if (!form) throw new Error("The Add Job Contact modal is not open.");
-    const button = form.closest(".modal-content")?.querySelector(".modal-footer #addContactButton")
-      || form.closest(".modal-content")?.querySelector("button#addContactButton");
-    if (!button) {
-      const error = new Error("The Utah modal Add Job Contact button was not found.");
-      logError("Could not find the modal Add Job Contact button.", error);
-      throw error;
-    }
+    await waitForPageState(
+      () => {
+        form = modalForm();
+        const button = addContactButton(form);
+        return form && button && !button.disabled && !loadingModalIsOpen() ? button : false;
+      },
+      "Waiting for Utah to enable the Add Job Contact button."
+    );
+    const button = addContactButton(form);
+    if (!button) throw new Error("The Utah modal Add Job Contact button was not found.");
+    const rowCountBeforeSave = contactGridRowCount();
     log("Submitting the current Add Job Contact modal.");
     button.click();
-    try {
-      await waitFor(() => !modalForm(), 15000);
-      log("Add Job Contact modal closed after submission.");
-    } catch (_) {
-      const errors = validationText();
-      const error = new Error(errors || "The Utah page did not accept the contact. Check the modal for validation errors.");
-      logError("The Utah page did not accept the contact.", error);
-      throw error;
-    }
+    await waitForPageState(
+      () => {
+        const errors = validationText();
+        if (errors && !loadingModalIsOpen() && modalForm()) {
+          throw new Error(`Utah did not accept this contact: ${errors}`);
+        }
+        return !modalForm() && !loadingModalIsOpen() && contactGridRowCount() > rowCountBeforeSave;
+      },
+      "Waiting for Utah to save the contact and update the Job Contacts list."
+    );
+    log("Utah saved the contact and added it to the Job Contacts list.");
   }
 
   async function fillContacts(contacts, mode) {
@@ -176,9 +289,15 @@
     for (let index = 0; index < contacts.length; index += 1) {
       const contact = contacts[index];
       report(`Adding contact ${index + 1} of ${contacts.length}: ${contact.company}`);
-      await fillModal(contact);
-      await addModal();
-      await new Promise((resolve) => setTimeout(resolve, 250));
+      try {
+        await fillModal(contact);
+        await addModal();
+      } catch (error) {
+        // The popup uses this to retain the contacts that were actually confirmed
+        // in the Utah grid, preventing an accidental duplicate on a later retry.
+        error.addedCount = index;
+        throw error;
+      }
     }
     return { ok: true, message: `Added ${contacts.length} job contacts. Review the table before clicking Continue.` };
   }
@@ -193,7 +312,7 @@
       })
       .catch((error) => {
         logError("FILL_CONTACTS handling failed.", error);
-        sendResponse({ ok: false, error: error.message });
+        sendResponse({ ok: false, error: error.message, addedCount: error.addedCount || 0 });
       });
     return true;
   });

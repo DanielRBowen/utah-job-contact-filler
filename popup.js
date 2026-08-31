@@ -416,8 +416,21 @@ async function sendToPage(type) {
     log("Sending FILL_CONTACTS message.", { tabId: tab.id, mode, count: selectedContacts.length });
     const result = await sendMessageWithInjection(tab.id, { type: "FILL_CONTACTS", mode, contacts: selectedContacts });
     log("Received response from content script.", result);
-    if (!result?.ok) throw new Error(result?.error || "The page could not be filled.");
-    markContacts(mode === "fillOnly" ? "filled" : "added", selectedContacts);
+    // A batch can fail after Utah has already accepted earlier contacts. Persist
+    // those confirmed rows before reporting the failed one, so retry only sends
+    // the remaining pending contacts.
+    if (mode === "addAll" && Number.isInteger(result?.addedCount) && result.addedCount > 0) {
+      markContacts("added", selectedContacts.slice(0, result.addedCount));
+    }
+    if (!result?.ok) {
+      const confirmed = result?.addedCount || 0;
+      const recoveryNote = confirmed
+        ? ` Utah confirmed ${confirmed} earlier contact${confirmed === 1 ? "" : "s"}; only the remaining contacts are pending.`
+        : "";
+      throw new Error(`${result?.error || "The page could not be filled."}${recoveryNote}`);
+    }
+    if (mode === "fillOnly") markContacts("filled", selectedContacts);
+    else if (!result.addedCount) markContacts("added", selectedContacts);
     setStatus(
       mode === "fillOnly"
         ? `${result.message} Marked as Filled. Click the modal's Add Job Contact button, then fill current modal again for the next row.`

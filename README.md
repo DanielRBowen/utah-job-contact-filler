@@ -14,6 +14,8 @@ It accepts JSON or CSV, previews the normalized contacts, fills the Utah form, a
 - Lets you delete individual preview rows or clear the entire list.
 - Fills the first pending contact with **Fill current modal**.
 - Fills and adds all pending contacts with **Fill & add all**.
+- Waits for Utah's **Please wait...** dialog to finish at every form-open and save step, with no fixed timeout.
+- Confirms a saved contact has appeared in the Job Contacts grid before moving to the next one.
 - Tracks contacts as **Pending**, **Filled**, or **Added** in the preview and saved draft.
 - Stores the draft locally in Edge. It does not call an AI service or send the data to a server.
 
@@ -55,9 +57,11 @@ The extension does not know when you manually click the site's Add button, so cl
 
 ### Fill & add all
 
-This mode processes every pending row. For each contact, it opens the modal, fills the fields, clicks the modal's **Add Job Contact** button, and waits for the modal to close. Successful rows are marked **Added**. The batch still stops before the site's weekly-claim **Continue** button.
+This mode processes every pending row. For each contact, it opens the modal, waits for Utah's loading dialog to clear, fills the fields, clicks the modal's **Add Job Contact** button, then waits until the loading dialog has cleared and the new row appears in the Job Contacts grid. There is no fixed timeout: it waits for the site's state change. Successful rows are marked **Added**. The batch still stops before the site's weekly-claim **Continue** button.
 
-Do not run the batch a second time against the same contacts; that can create duplicates.
+Do not reload the same source data as a fresh list and run it again; that can create duplicates. Use the existing preview to resume a batch after an error.
+
+If Utah displays its generic error dialog or a validation error, the batch stops at that contact and keeps it **Pending**. Contacts already confirmed in the grid are retained as **Added**, so after resolving the Utah-side issue you can run the batch again without resending those earlier contacts. A save that ends in a Utah error is not automatically retried because the site does not provide an idempotent save confirmation; retrying it blindly could create a duplicate.
 
 ## JSON formats
 
@@ -150,9 +154,11 @@ Open DevTools on the Utah page with `F12` and filter the Console for:
 
 The page console reports content-script loading, modal discovery, field filling, validation errors, and batch progress. Inspect the extension popup itself to see the selected tab URL and message-delivery logs.
 
-### Form validation errors
+### Form validation errors and Utah error dialogs
 
 The Utah page may reject a contact if a conditional field is missing or if a value does not match the current site's options. Use **Fill current modal** to inspect the modal before adding it. The extension reports visible validation text when it can read it.
+
+For a generic Utah error dialog, preserve the contact data, acknowledge the dialog, resolve the page/session issue, and run the batch again. The extension never abandons an in-progress loading dialog because of an arbitrary elapsed-time limit, but it does stop immediately when Utah explicitly reports an error.
 
 ## Privacy and safety
 
