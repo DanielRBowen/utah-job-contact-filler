@@ -103,10 +103,10 @@ The parser recognizes these common field aliases:
 
 - Company: `company`, `companyName`, `employer`, or `employerName`
 - Position: `position`, `positionTitle`, `jobTitle`, or `title`
-- URL: `website`, `webAddress`, `url`, `jobPostingUrl`, `jobUrl`, or nested `contact.url`. Markdown links and enclosing brackets are removed automatically; URLs must use `http://` or `https://`.
+- URL: `website`, `webAddress`, `url`, `jobPostingUrl`, `jobUrl`, or nested `contact.url`. For `OT` contacts, nested `contact.teams_meeting_url` is used as the Web Address when no top-level URL is supplied. Markdown links and enclosing brackets are removed automatically; URLs must use `http://` or `https://`.
 - Contact details: `phoneNumber`, `phone`, `address`, `faxNumber`, and `emailAddress` may be top-level or nested in `contact` (for example, `contact.phoneNumber`). `contactComment` may also be nested.
 - Date: ISO dates such as `2026-07-27`, US dates, and other values recognized by JavaScript's date parser
-- Result: codes or phrases such as `Still Waiting`, `awaiting employer response`, `interview`, `hired`, `not hiring`, and `position filled`
+- Result: codes or phrases such as `Still Waiting`, `awaiting employer response`, `interview`, `hired`, `not hiring`, `not selected by employer`, `rejected`, and `position filled`. “Not selected” and “rejected” map to Utah's `NH` result code.
 
 Supported Utah contact methods include:
 

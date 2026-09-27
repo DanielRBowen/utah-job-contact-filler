@@ -315,7 +315,7 @@ function normalizeContact(row, index) {
   const position = value("position", "positionTitle", "jobTitle", "title", "Position");
   const website = normalizeWebsite(
     value("website", "webAddress", "url", "jobPostingUrl", "jobUrl", "Web Address")
-      || nestedValue("url", "website", "webAddress")
+      || nestedValue("teams_meeting_url", "teamsMeetingUrl", "url", "website", "webAddress")
   );
   const date = normalizeDate(value("date", "contactDate", "contact_date", "Contact Date"));
   const method = normalizeMethod(value("method", "contactMethod", "contactTypeCode", "Contact Method"));
@@ -417,7 +417,7 @@ function normalizeResult(value) {
   if (/hired/.test(text)) return "HI";
   if (/interview/.test(text)) return "IT";
   if (/job offered|offered/.test(text)) return "JO";
-  if (/not hiring/.test(text)) return "NH";
+  if (/not hiring|not selected|not hired|rejected/.test(text)) return "NH";
   if (/no response/.test(text)) return "NP";
   if (/other/.test(text)) return "OT";
   if (/position filled|filled/.test(text)) return "PF";

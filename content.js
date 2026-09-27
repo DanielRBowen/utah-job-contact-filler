@@ -219,6 +219,13 @@
         "Waiting for Utah to enable the Contact Comment field."
       );
       setField("AddContactViewModel_ContactComment", contact.contactComment);
+      if (contact.website) {
+        await waitForPageState(
+          () => frontJobContactForm() && !document.getElementById("AddContactViewModel_WebAddress")?.disabled,
+          "Waiting for Utah to enable the Web Address field."
+        );
+        setField("AddContactViewModel_WebAddress", contact.website);
+      }
     }
     if (contact.method === "WB") {
       await waitForPageState(
