@@ -313,17 +313,20 @@ function normalizeContact(row, index) {
 
   const company = value("company", "companyName", "employer", "employerName", "Company Name");
   const position = value("position", "positionTitle", "jobTitle", "title", "Position");
-  const website = value("website", "webAddress", "url", "jobPostingUrl", "jobUrl", "Web Address")
-    || nestedValue("url", "website", "webAddress");
+  const website = normalizeWebsite(
+    value("website", "webAddress", "url", "jobPostingUrl", "jobUrl", "Web Address")
+      || nestedValue("url", "website", "webAddress")
+  );
   const date = normalizeDate(value("date", "contactDate", "contact_date", "Contact Date"));
   const method = normalizeMethod(value("method", "contactMethod", "contactTypeCode", "Contact Method"));
   const result = normalizeResult(value("result", "resultType", "resultTypeCode", "Result"));
-  const contactComment = value("contactComment", "comment", "Contact Comment");
+  const contactComment = value("contactComment", "comment", "Contact Comment")
+    || nestedValue("contactComment", "comment");
   const resultComment = value("resultComment", "specificResult", "Result Comment");
-  const address = value("address", "Address");
-  const phoneNumber = value("phoneNumber", "phone", "Phone");
-  const faxNumber = value("faxNumber", "fax", "Fax");
-  const emailAddress = value("emailAddress", "email", "Email Address");
+  const address = value("address", "Address") || nestedValue("address");
+  const phoneNumber = value("phoneNumber", "phone", "Phone") || nestedValue("phoneNumber", "phone");
+  const faxNumber = value("faxNumber", "fax", "Fax") || nestedValue("faxNumber", "fax");
+  const emailAddress = value("emailAddress", "email", "Email Address") || nestedValue("emailAddress", "email");
   const suppliedStatus = value("status", "state", "progress").toLowerCase();
   const status = ["filled", "added"].includes(suppliedStatus) ? suppliedStatus : "pending";
   const errors = [];
@@ -334,6 +337,9 @@ function normalizeContact(row, index) {
   if (!method) errors.push("method must be WB, EM, FX, PH, or OT, or describe one of the supported methods.");
   if (!result) errors.push("result must be a supported result such as Still Waiting.");
   if (method === "WB" && !website) errors.push("website is required for an online/company-website application.");
+  if (method === "WB" && website && !isHttpUrl(website)) {
+    errors.push("website must be a valid http:// or https:// URL.");
+  }
   if (method === "OT" && !contactComment) errors.push("contactComment is required when method is OT.");
   if (result === "OT" && !resultComment) errors.push("resultComment is required when result is OT.");
   if (method === "EM" && !emailAddress) errors.push("emailAddress is required when method is EM.");
@@ -360,6 +366,27 @@ function normalizeContact(row, index) {
 
 function normalizeKey(value) {
   return String(value).trim().replace(/^\ufeff/, "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+}
+
+function normalizeWebsite(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+
+  // Accept a URL copied as a Markdown link, for example [job](https://example.com),
+  // or a URL wrapped in angle/square brackets. Utah's Web Address field needs the
+  // URL itself, not the surrounding markup.
+  const markdownLink = text.match(/^\[[^\]]*\]\((https?:\/\/[^\s)]+)\)$/i);
+  if (markdownLink) return markdownLink[1];
+  return text.replace(/^[\[<]+|[\]>]+$/g, "");
+}
+
+function isHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch (_) {
+    return false;
+  }
 }
 
 function normalizeDate(value) {

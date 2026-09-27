@@ -1,6 +1,6 @@
 (() => {
   const ADD_BUTTON_SELECTOR = "#btnShowAdd";
-  const FORM_SELECTOR = ".modal-content #JobContactsForm";
+  const FORM_SELECTOR = "#JobContactsForm";
   const LOG_PREFIX = "[Utah Job Contact Filler]";
 
   function log(message, details) {
@@ -50,6 +50,11 @@
       .find((form) => activeModal(form)) || null;
   }
 
+  function frontJobContactForm() {
+    return [...document.querySelectorAll(FORM_SELECTOR)]
+      .find(isFrontModal) || null;
+  }
+
   function loadingModalIsOpen() {
     return [...document.querySelectorAll("[uib-modal-window] .modal-body[aria-label='Please Wait'], [uib-modal-window] #divLoading")]
       .some(isFrontModal);
@@ -74,12 +79,14 @@
   function waitForPageState(predicate, waitingMessage) {
     return new Promise((resolve, reject) => {
       let observer;
+      let interval;
       let settled = false;
 
       const finish = (callback, value) => {
         if (settled) return;
         settled = true;
         observer?.disconnect();
+        clearInterval(interval);
         callback(value);
       };
 
@@ -108,6 +115,10 @@
         characterData: true,
         subtree: true
       });
+      // Attribute mutations cover normal Angular UI Bootstrap updates. The short
+      // fallback check also covers a page-side property update that creates no
+      // observable DOM mutation. It has no timeout and runs only until settled.
+      interval = setInterval(check, 100);
       check();
     });
   }
@@ -148,7 +159,7 @@
   }
 
   async function openModal() {
-    if (modalForm() && !loadingModalIsOpen()) {
+    if (frontJobContactForm()) {
       log("Add Job Contact modal was already open.");
       return;
     }
@@ -158,7 +169,7 @@
         () => !loadingModalIsOpen(),
         "Waiting for Utah to finish its current request before opening the contact form."
       );
-      if (modalForm()) return;
+      if (frontJobContactForm()) return;
     }
 
     const button = document.querySelector(ADD_BUTTON_SELECTOR);
@@ -170,7 +181,7 @@
     log("Opening Add Job Contact modal.");
     button.click();
     await waitForPageState(
-      () => modalForm() && !loadingModalIsOpen(),
+      () => frontJobContactForm(),
       "Waiting for Utah to load the Add Job Contact form."
     );
     log("Add Job Contact modal opened.");
@@ -187,9 +198,8 @@
     await openModal();
     await waitForPageState(
       () => {
-        const form = modalForm();
+        const form = frontJobContactForm();
         return form
-          && !loadingModalIsOpen()
           && !document.getElementById("AddContactViewModel_EmployerName")?.disabled
           && !document.getElementById("AddContactViewModel_Position")?.disabled
           && !document.getElementById("AddContactViewModel_ContactDate")?.disabled
@@ -205,28 +215,28 @@
 
     if (contact.method === "OT") {
       await waitForPageState(
-        () => !loadingModalIsOpen() && !document.getElementById("AddContactViewModel_ContactComment")?.disabled,
+        () => frontJobContactForm() && !document.getElementById("AddContactViewModel_ContactComment")?.disabled,
         "Waiting for Utah to enable the Contact Comment field."
       );
       setField("AddContactViewModel_ContactComment", contact.contactComment);
     }
     if (contact.method === "WB") {
       await waitForPageState(
-        () => !loadingModalIsOpen() && !document.getElementById("AddContactViewModel_WebAddress")?.disabled,
+        () => frontJobContactForm() && !document.getElementById("AddContactViewModel_WebAddress")?.disabled,
         "Waiting for Utah to enable the Web Address field."
       );
       setField("AddContactViewModel_WebAddress", contact.website);
     }
     if (contact.method === "EM") {
       await waitForPageState(
-        () => !loadingModalIsOpen() && !document.getElementById("AddContactViewModel_EmailAddress")?.disabled,
+        () => frontJobContactForm() && !document.getElementById("AddContactViewModel_EmailAddress")?.disabled,
         "Waiting for Utah to enable the Email Address field."
       );
       setField("AddContactViewModel_EmailAddress", contact.emailAddress || "");
     }
     if (contact.method === "PH") {
       await waitForPageState(
-        () => !loadingModalIsOpen()
+        () => frontJobContactForm()
           && !document.getElementById("AddContactViewModel_PhoneNumber")?.disabled
           && !document.getElementById("AddContactViewModel_Address")?.disabled,
         "Waiting for Utah to enable the Phone and Address fields."
@@ -236,7 +246,7 @@
     }
     if (contact.method === "FX") {
       await waitForPageState(
-        () => !loadingModalIsOpen() && !document.getElementById("AddContactViewModel_FaxNumber")?.disabled,
+        () => frontJobContactForm() && !document.getElementById("AddContactViewModel_FaxNumber")?.disabled,
         "Waiting for Utah to enable the Fax field."
       );
       setField("AddContactViewModel_FaxNumber", contact.faxNumber || "");
@@ -245,7 +255,7 @@
     setSelect("AddContactViewModel_ResultTypeCode", contact.result);
     if (contact.result === "OT") {
       await waitForPageState(
-        () => !loadingModalIsOpen() && !document.getElementById("AddContactViewModel_ResultComment")?.disabled,
+        () => frontJobContactForm() && !document.getElementById("AddContactViewModel_ResultComment")?.disabled,
         "Waiting for Utah to enable the Result Comment field."
       );
       setField("AddContactViewModel_ResultComment", contact.resultComment);
@@ -253,7 +263,7 @@
   }
 
   function validationText() {
-    const form = modalForm();
+    const form = frontJobContactForm() || modalForm();
     if (!form) return "";
     return [...form.querySelectorAll(".field-validation-error, .validation-summary-errors, [aria-invalid='true']")]
       .map((element) => element.textContent.trim())
@@ -266,13 +276,13 @@
   }
 
   async function addModal() {
-    let form = modalForm();
+    let form = frontJobContactForm();
     if (!form) throw new Error("The Add Job Contact modal is not open.");
     await waitForPageState(
       () => {
-        form = modalForm();
+        form = frontJobContactForm();
         const button = addContactButton(form);
-        return form && button && !button.disabled && !loadingModalIsOpen() ? button : false;
+        return form && button && !button.disabled ? button : false;
       },
       "Waiting for Utah to enable the Add Job Contact button."
     );

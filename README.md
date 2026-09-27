@@ -57,7 +57,7 @@ The extension does not know when you manually click the site's Add button, so cl
 
 ### Fill & add all
 
-This mode processes every pending row. For each contact, it opens the modal, waits for Utah's loading dialog to clear, fills the fields, clicks the modal's **Add Job Contact** button, then waits until the loading dialog has cleared and the new row appears in the Job Contacts grid. There is no fixed timeout: it waits for the site's state change. Successful rows are marked **Added**. The batch still stops before the site's weekly-claim **Continue** button.
+This mode processes every pending row. For each contact, it opens the modal, waits for Utah's loading dialog to clear, fills the fields, clicks the modal's **Add Job Contact** button, then waits until the loading dialog has cleared and the new row appears in the Job Contacts grid. It observes modal changes and also checks every 100 ms as a fallback, with no fixed timeout or deadline. Successful rows are marked **Added**. The batch still stops before the site's weekly-claim **Continue** button.
 
 Do not reload the same source data as a fresh list and run it again; that can create duplicates. Use the existing preview to resume a batch after an error.
 
@@ -103,7 +103,8 @@ The parser recognizes these common field aliases:
 
 - Company: `company`, `companyName`, `employer`, or `employerName`
 - Position: `position`, `positionTitle`, `jobTitle`, or `title`
-- URL: `website`, `webAddress`, `url`, `jobPostingUrl`, `jobUrl`, or nested `contact.url`
+- URL: `website`, `webAddress`, `url`, `jobPostingUrl`, `jobUrl`, or nested `contact.url`. Markdown links and enclosing brackets are removed automatically; URLs must use `http://` or `https://`.
+- Contact details: `phoneNumber`, `phone`, `address`, `faxNumber`, and `emailAddress` may be top-level or nested in `contact` (for example, `contact.phoneNumber`). `contactComment` may also be nested.
 - Date: ISO dates such as `2026-07-27`, US dates, and other values recognized by JavaScript's date parser
 - Result: codes or phrases such as `Still Waiting`, `awaiting employer response`, `interview`, `hired`, `not hiring`, and `position filled`
 
