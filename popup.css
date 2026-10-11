@@ -102,9 +102,12 @@ button:disabled {
 
 .status {
   min-height: 18px;
+  max-height: 150px;
+  overflow: auto;
   color: #43515c;
   font-size: 12px;
   line-height: 1.35;
+  white-space: pre-wrap;
 }
 
 .status.error {
@@ -206,6 +209,11 @@ td small {
 tr.completed td {
   color: #65747f;
   background: #f4f7f8;
+}
+
+tr.failed td {
+  color: #8e2929;
+  background: #fff4f2;
 }
 
 .table-action {

@@ -79,10 +79,14 @@ function setStatus(message, kind = "", working = isBusy) {
 }
 
 function setButtons(enabled) {
-  const hasPending = contacts.some((contact) => contact.status === "pending");
+  const hasPending = contacts.some(isPendingContact);
   $("fillCurrent").disabled = !enabled || !hasPending;
   $("addAll").disabled = !enabled || !hasPending;
   $("clearContacts").disabled = !enabled;
+}
+
+function isPendingContact(contact) {
+  return contact.status === "pending" || contact.status === "error";
 }
 
 function renderPreview() {
@@ -109,21 +113,32 @@ function renderPreview() {
   const body = document.createElement("tbody");
   contacts.forEach((contact, index) => {
     const row = document.createElement("tr");
-    for (const value of [
+    const values = [
       String(index + 1),
       contact.company,
       contact.position,
       contact.date,
       `${contact.method} ${contact.website ? "(URL provided)" : ""}`,
       contact.result,
-      contact.status === "pending" ? "Pending" : contact.status === "filled" ? "Filled" : "Added"
-    ]) {
+      contact.status === "pending" ? "Pending"
+        : contact.status === "filled" ? "Filled"
+          : contact.status === "error" ? "Error"
+            : "Added"
+    ];
+    values.forEach((value, valueIndex) => {
       const td = document.createElement("td");
       td.textContent = value;
+      if (valueIndex === 6 && contact.status === "error" && contact.error) {
+        const detail = document.createElement("small");
+        detail.textContent = contact.error;
+        td.append(document.createElement("br"), detail);
+        td.title = contact.error;
+      }
       row.append(td);
-    }
+    });
 
-    if (contact.status !== "pending") row.classList.add("completed");
+    if (contact.status === "filled" || contact.status === "added") row.classList.add("completed");
+    if (contact.status === "error") row.classList.add("failed");
 
     const actions = document.createElement("td");
     const deleteButton = document.createElement("button");
@@ -154,7 +169,7 @@ function syncInputToContacts() {
 }
 
 function pendingContacts() {
-  return contacts.filter((contact) => contact.status === "pending");
+  return contacts.filter(isPendingContact);
 }
 
 async function sendMessageWithInjection(tabId, message) {
@@ -174,10 +189,58 @@ async function sendMessageWithInjection(tabId, message) {
 function markContacts(status, selectedContacts) {
   const selected = new Set(selectedContacts);
   for (const contact of contacts) {
-    if (selected.has(contact)) contact.status = status;
+    if (selected.has(contact)) {
+      contact.status = status;
+      if (status !== "error") contact.error = "";
+    }
   }
   syncInputToContacts();
   renderPreview();
+}
+
+function updateBatchContacts(selectedContacts, result) {
+  const addedIndexes = Array.isArray(result?.addedIndexes)
+    ? result.addedIndexes
+    : Number.isInteger(result?.addedCount)
+      ? Array.from({ length: result.addedCount }, (_, index) => index)
+      : [];
+  const failures = Array.isArray(result?.failures) ? result.failures : [];
+  const failureByIndex = new Map(failures.map((failure) => [failure.index, failure]));
+
+  addedIndexes.forEach((index) => {
+    const contact = selectedContacts[index];
+    if (contact) {
+      contact.status = "added";
+      contact.error = "";
+    }
+  });
+  failures.forEach((failure) => {
+    const contact = selectedContacts[failure.index];
+    if (contact) {
+      contact.status = "error";
+      contact.error = failure.error || "Utah did not confirm that this contact was added.";
+    }
+  });
+
+  // Older content scripts report only the number of confirmed leading rows.
+  if (!failures.length && addedIndexes.length < selectedContacts.length && result?.ok) {
+    selectedContacts.forEach((contact, index) => {
+      if (!addedIndexes.includes(index)) {
+        contact.status = "added";
+        contact.error = "";
+      }
+    });
+  }
+
+  syncInputToContacts();
+  renderPreview();
+  return {
+    addedCount: addedIndexes.length,
+    failures: [...failureByIndex.entries()].map(([index, failure]) => ({
+      company: selectedContacts[index]?.company || failure.company || `Contact ${index + 1}`,
+      error: failure.error || "Utah did not confirm that this contact was added."
+    }))
+  };
 }
 
 function removeContact(index) {
@@ -229,7 +292,7 @@ function parseContacts(raw) {
   if (text.startsWith("[") || text.startsWith("{")) {
     let parsed;
     try {
-      parsed = JSON.parse(text);
+      parsed = JSON.parse(normalizeJsonWhitespace(text));
     } catch (error) {
       throw new Error(`Invalid JSON: ${error.message}`);
     }
@@ -244,6 +307,34 @@ function parseContacts(raw) {
   const normalized = rows.map((row, index) => normalizeContact(row, index));
   const errors = normalized.flatMap((contact, index) => contact.errors.map((error) => `Row ${index + 1}: ${error}`));
   if (errors.length) throw new Error(errors.join(" "));
+  return normalized;
+}
+
+function normalizeJsonWhitespace(text) {
+  // Pasted JSON often uses nonbreaking or typographic spaces for indentation.
+  // JSON permits only ASCII space, tab, CR, and LF outside strings, so convert
+  // other Unicode whitespace there while preserving all string values exactly.
+  let inString = false;
+  let escaped = false;
+  let normalized = "";
+  for (const character of text) {
+    if (inString) {
+      normalized += character;
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === '"') inString = false;
+      continue;
+    }
+
+    if (character === '"') {
+      inString = true;
+      normalized += character;
+    } else if (/\s/u.test(character) && !/[\t\n\r ]/.test(character)) {
+      normalized += " ";
+    } else {
+      normalized += character;
+    }
+  }
   return normalized;
 }
 
@@ -328,7 +419,8 @@ function normalizeContact(row, index) {
   const faxNumber = value("faxNumber", "fax", "Fax") || nestedValue("faxNumber", "fax");
   const emailAddress = value("emailAddress", "email", "Email Address") || nestedValue("emailAddress", "email");
   const suppliedStatus = value("status", "state", "progress").toLowerCase();
-  const status = ["filled", "added"].includes(suppliedStatus) ? suppliedStatus : "pending";
+  const status = ["filled", "added", "error"].includes(suppliedStatus) ? suppliedStatus : "pending";
+  const error = value("error", "lastError");
   const errors = [];
 
   if (!company) errors.push("company is required.");
@@ -360,6 +452,7 @@ function normalizeContact(row, index) {
     faxNumber,
     emailAddress,
     status,
+    error,
     errors
   };
 }
@@ -449,27 +542,27 @@ async function sendToPage(type) {
     log("Sending FILL_CONTACTS message.", { tabId: tab.id, mode, count: selectedContacts.length });
     const result = await sendMessageWithInjection(tab.id, { type: "FILL_CONTACTS", mode, contacts: selectedContacts });
     log("Received response from content script.", result);
-    // A batch can fail after Utah has already accepted earlier contacts. Persist
-    // those confirmed rows before reporting the failed one, so retry only sends
-    // the remaining pending contacts.
-    if (mode === "addAll" && Number.isInteger(result?.addedCount) && result.addedCount > 0) {
-      markContacts("added", selectedContacts.slice(0, result.addedCount));
+    if (mode === "fillOnly") {
+      if (!result?.ok) throw new Error(result?.error || "The page could not be filled.");
+      markContacts("filled", selectedContacts);
+      setStatus(`${result.message} Marked as Filled. Click the modal's Add Job Contact button, then fill current modal again for the next row.`, "success");
+    } else {
+      const outcome = updateBatchContacts(selectedContacts, result);
+      if (!result?.ok && !outcome.failures.length) {
+        throw new Error(result?.error || "The page could not be filled.");
+      }
+      if (outcome.failures.length) {
+        const failureDetails = outcome.failures
+          .map(({ company, error }) => `• ${company}: ${error}`)
+          .join("\n");
+        setStatus(
+          `Added ${outcome.addedCount} of ${selectedContacts.length} contacts. Could not add ${outcome.failures.length}:\n${failureDetails}\n\nFailed contacts remain available to retry.`,
+          "error"
+        );
+      } else {
+        setStatus(result.message || `Completed: added ${outcome.addedCount} job contacts. Review the table before clicking Continue.`, "success");
+      }
     }
-    if (!result?.ok) {
-      const confirmed = result?.addedCount || 0;
-      const recoveryNote = confirmed
-        ? ` Utah confirmed ${confirmed} earlier contact${confirmed === 1 ? "" : "s"}; only the remaining contacts are pending.`
-        : "";
-      throw new Error(`${result?.error || "The page could not be filled."}${recoveryNote}`);
-    }
-    if (mode === "fillOnly") markContacts("filled", selectedContacts);
-    else if (!result.addedCount) markContacts("added", selectedContacts);
-    setStatus(
-      mode === "fillOnly"
-        ? `${result.message} Marked as Filled. Click the modal's Add Job Contact button, then fill current modal again for the next row.`
-        : result.message,
-      "success"
-    );
   } catch (error) {
     logError("FILL_CONTACTS message failed.", error);
     setStatus(`${error.message} If the page was already open when you installed the extension, reload it once.`, "error");
@@ -497,8 +590,9 @@ $("fillCurrent").addEventListener("click", () => sendToPage("fillCurrent"));
 $("clearContacts").addEventListener("click", clearContacts);
 
 $("addAll").addEventListener("click", async () => {
+  const pendingCount = pendingContacts().length;
   const confirmed = window.confirm(
-    `This will add ${contacts.length} job contacts to the Utah DWS page. It will not click Continue or submit the weekly claim. Continue?`
+    `This will add ${pendingCount} pending job contact${pendingCount === 1 ? "" : "s"} to the Utah DWS page. Contacts already marked Added or Filled will be skipped. It will not click Continue or submit the weekly claim. Continue?`
   );
   if (confirmed) await sendToPage("addAll");
 });

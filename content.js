@@ -74,6 +74,18 @@
     return "";
   }
 
+  function dismissGenericErrorDialog() {
+    const modal = frontModal();
+    if (!modal?.querySelector("#generic-modal-body")) return false;
+    const closeButton = [...modal.querySelectorAll("button, [role='button']")]
+      .filter(isVisible)
+      .find((button) => /^(ok|close|dismiss|acknowledge)$/i.test(button.textContent.trim()));
+    if (!closeButton) return false;
+    log("Closing Utah's generic error dialog so the next contact can be attempted.");
+    closeButton.click();
+    return true;
+  }
+
   // This deliberately has no deadline. Utah shows a separate loading modal while
   // requests are in flight, so the correct signal is the page state, not elapsed time.
   function waitForPageState(predicate, waitingMessage) {
@@ -320,20 +332,33 @@
       return { ok: true, message: `Completed filling ${contacts[0].company}. Review it, then click the modal's Add Job Contact button.` };
     }
 
+    const addedIndexes = [];
+    const failures = [];
     for (let index = 0; index < contacts.length; index += 1) {
       const contact = contacts[index];
       report(`Adding contact ${index + 1} of ${contacts.length}: ${contact.company}`);
       try {
         await fillModal(contact);
         await addModal();
+        addedIndexes.push(index);
       } catch (error) {
-        // The popup uses this to retain the contacts that were actually confirmed
-        // in the Utah grid, preventing an accidental duplicate on a later retry.
-        error.addedCount = index;
-        throw error;
+        const message = error?.message || String(error);
+        failures.push({ index, company: contact.company, error: message });
+        logError(`Could not add contact ${index + 1} of ${contacts.length}: ${contact.company}. Continuing with the next contact.`, error);
+        dismissGenericErrorDialog();
+        report(`Could not add ${contact.company}: ${message}. Continuing with the next contact.`);
       }
     }
-    return { ok: true, message: `Completed: added ${contacts.length} job contacts. Review the table before clicking Continue.` };
+    const addedCount = addedIndexes.length;
+    return {
+      ok: failures.length === 0,
+      addedCount,
+      addedIndexes,
+      failures,
+      message: failures.length
+        ? `Finished attempting all ${contacts.length} contacts. Added ${addedCount}; ${failures.length} could not be added. Review the popup for contact-specific errors.`
+        : `Completed: added ${addedCount} job contacts. Review the table before clicking Continue.`
+    };
   }
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
