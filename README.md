@@ -110,13 +110,15 @@ The parser recognizes these common field aliases:
 - Date: ISO dates such as `2026-07-27`, US dates, and other values recognized by JavaScript's date parser
 - Result: codes or phrases such as `Still Waiting`, `awaiting employer response`, `interview`, `hired`, `not hiring`, `not selected by employer`, `rejected`, and `position filled`. “Not selected” and “rejected” map to Utah's `NH` result code.
 
+Every contact must also include at least one contact channel: `website`, `emailAddress`, `address`, `phoneNumber`, or `faxNumber`. These may be nested under `contact`; the extension fills supplied channels even when the selected method is `OT`.
+
 Supported Utah contact methods include:
 
 - `WB`: online or company-website application; the URL is placed in **Web Address**
 - `EM`: email; provide `emailAddress`
 - `PH`: phone or in-person contact; provide a phone number or address
 - `FX`: fax; provide `faxNumber`
-- `OT`: other; provide `contactComment`
+- `OT`: other; provide `contactComment` and at least one contact channel
 
 For a result of `OT`, provide `resultComment`.
 

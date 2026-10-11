@@ -155,6 +155,50 @@
     nativeSetValue(element, value ?? "");
   }
 
+  function setProvidedContactChannels(contact) {
+    const fields = [
+      ["emailAddress", "AddContactViewModel_EmailAddress"],
+      ["address", "AddContactViewModel_Address"],
+      ["website", "AddContactViewModel_WebAddress"],
+      ["phoneNumber", "AddContactViewModel_PhoneNumber"],
+      ["faxNumber", "AddContactViewModel_FaxNumber"]
+    ];
+    for (const [property, id] of fields) {
+      if (contact[property]) setField(id, contact[property]);
+    }
+  }
+
+  function clearOptionalContactFields() {
+    const fieldIds = [
+      "AddContactViewModel_ContactComment",
+      "AddContactViewModel_WebAddress",
+      "AddContactViewModel_EmailAddress",
+      "AddContactViewModel_PhoneNumber",
+      "AddContactViewModel_Address",
+      "AddContactViewModel_FaxNumber",
+      "AddContactViewModel_ResultComment"
+    ];
+    for (const id of fieldIds) {
+      const element = document.getElementById(id);
+      if (element) nativeSetValue(element, "");
+    }
+  }
+
+  function clearValidationFeedback(form) {
+    // Utah can leave the previous contact's validation summary in the still-open
+    // modal. Clear that old feedback before submitting the next row so it is not
+    // mistaken for a new failure before Angular has processed the click.
+    form.querySelectorAll(".field-validation-error, .validation-summary-errors").forEach((element) => {
+      element.textContent = "";
+    });
+    form.querySelectorAll("[aria-invalid='true']").forEach((element) => {
+      element.removeAttribute("aria-invalid");
+    });
+    form.querySelectorAll(".input-validation-error").forEach((element) => {
+      element.classList.remove("input-validation-error");
+    });
+  }
+
   function setSelect(id, code) {
     const element = document.getElementById(id);
     if (!element) throw new Error(`The Utah form field ${id} was not found.`);
@@ -220,6 +264,7 @@
       },
       "Waiting for the Add Job Contact form fields to become ready."
     );
+    clearOptionalContactFields();
     setField("AddContactViewModel_EmployerName", contact.company);
     setField("AddContactViewModel_Position", contact.position);
     setField("AddContactViewModel_ContactDate", contact.date);
@@ -256,12 +301,12 @@
     if (contact.method === "PH") {
       await waitForPageState(
         () => frontJobContactForm()
-          && !document.getElementById("AddContactViewModel_PhoneNumber")?.disabled
-          && !document.getElementById("AddContactViewModel_Address")?.disabled,
+          && (!contact.phoneNumber || !document.getElementById("AddContactViewModel_PhoneNumber")?.disabled)
+          && (!contact.address || !document.getElementById("AddContactViewModel_Address")?.disabled),
         "Waiting for Utah to enable the Phone and Address fields."
       );
-      setField("AddContactViewModel_PhoneNumber", contact.phoneNumber || "");
-      setField("AddContactViewModel_Address", contact.address || "");
+      if (contact.phoneNumber) setField("AddContactViewModel_PhoneNumber", contact.phoneNumber);
+      if (contact.address) setField("AddContactViewModel_Address", contact.address);
     }
     if (contact.method === "FX") {
       await waitForPageState(
@@ -279,6 +324,11 @@
       );
       setField("AddContactViewModel_ResultComment", contact.resultComment);
     }
+
+    // The Utah form requires at least one contact channel, independent of the
+    // selected contact method. Include any supplied channels for OT and other
+    // methods as well (for example, contact.email and contact.address).
+    setProvidedContactChannels(contact);
   }
 
   function validationText() {
@@ -307,6 +357,7 @@
     );
     const button = addContactButton(form);
     if (!button) throw new Error("The Utah modal Add Job Contact button was not found.");
+    clearValidationFeedback(form);
     const rowCountBeforeSave = contactGridRowCount();
     log("Submitting the current Add Job Contact modal.");
     button.click();

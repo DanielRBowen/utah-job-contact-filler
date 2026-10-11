@@ -428,6 +428,9 @@ function normalizeContact(row, index) {
   if (!date) errors.push("date is required and must be a valid date.");
   if (!method) errors.push("method must be WB, EM, FX, PH, or OT, or describe one of the supported methods.");
   if (!result) errors.push("result must be a supported result such as Still Waiting.");
+  if (!website && !emailAddress && !address && !phoneNumber && !faxNumber) {
+    errors.push("at least one of website, emailAddress, address, phoneNumber, or faxNumber is required.");
+  }
   if (method === "WB" && !website) errors.push("website is required for an online/company-website application.");
   if (method === "WB" && website && !isHttpUrl(website)) {
     errors.push("website must be a valid http:// or https:// URL.");
